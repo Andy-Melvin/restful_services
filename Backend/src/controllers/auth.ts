@@ -1,15 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
-import passport from 'passport';
 import bcrypt from 'bcrypt';
 import prisma from '../lib/prisma';
 import { generateToken } from '../utils/jwt';
 import HttpException from '../exceptions/HttpException';
 import crypto from 'crypto';
-import { Resend } from 'resend';
+import { sendEmail } from '../utils/email.service';
 import { getPasswordResetTemplate } from '../templates/email/passwordReset';
 import { getPasswordChangedTemplate } from '../templates/email/passwordChanged';
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function register(req: Request, res: Response, next: NextFunction) {
   try {
@@ -77,22 +74,24 @@ export async function forgotPassword(req: Request, res: Response, next: NextFunc
     }
 
     const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetTokenExpiry = new Date(Date.now() + 3600000);
+    const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour expiry
 
     await prisma.user.update({
       where: { email },
       data: { resetToken, resetTokenExpiry }
     });
 
-    res.json({ message: 'Password reset instructions sent to your email.' });
-
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
-    await resend.emails.send({
-      from: 'Restfull NE<onboarding@resend.dev>',
+    const htmlContent = getPasswordResetTemplate(resetUrl);
+
+    await sendEmail({
       to: email,
       subject: 'Reset Your Password',
-      html: getPasswordResetTemplate(resetUrl),
+      text: `Click the following link to reset your password: ${resetUrl}`,
+      html: htmlContent
     });
+
+    res.json({ message: 'Password reset instructions sent to your email.' });
   } catch (err) {
     next(err);
   }
@@ -126,21 +125,21 @@ export async function resetPassword(req: Request, res: Response, next: NextFunct
       }
     });
 
-    res.json({ message: 'Password has been reset successfully.' });
+    const htmlContent = getPasswordChangedTemplate();
 
-    resend.emails.send({
-      from: 'Restfull NE<onboarding@resend.dev>',
+    await sendEmail({
       to: user.email,
       subject: 'Password Changed Successfully',
-      html: getPasswordChangedTemplate(),
-    }).catch(console.error);
+      text: 'Your password has been changed successfully.',
+      html: htmlContent
+    });
+
+    res.json({ message: 'Password has been reset successfully.' });
   } catch (err) {
     next(err);
   }
 }
 
 export const logout = (req: Request, res: Response): void => {
-  req.logout(() => {
-    res.json({ message: 'Logged out successfully' });
-  });
+  res.json({ message: 'Logged out successfully' });
 };

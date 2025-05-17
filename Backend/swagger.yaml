@@ -1,8 +1,8 @@
 openapi: 3.0.0
 info:
-  title: Node TypeScript Backend API
+  title: RESTful API Service
   version: 1.0.0
-  description: API documentation for Node TypeScript Backend
+  description: A modern RESTful API service with authentication and email functionality
 
 servers:
   - url: http://localhost:3000/api/v1
@@ -16,25 +16,20 @@ components:
       bearerFormat: JWT
 
   schemas:
-    RegisterRequest:
+    User:
       type: object
-      required:
-        - email
-        - password
       properties:
+        id:
+          type: string
         email:
           type: string
-          format: email
-          example: user@example.com
-        password:
+        firstName:
           type: string
-          minLength: 6
-          example: "Test123!@#"
+        lastName:
+          type: string
         role:
           type: string
-          enum: [USER, ADMIN, user, admin]
-          default: USER
-          example: USER
+          enum: [USER, ADMIN]
 
     LoginRequest:
       type: object
@@ -45,11 +40,29 @@ components:
         email:
           type: string
           format: email
-          example: user@example.com
         password:
           type: string
-          minLength: 6
-          example: "Test123!@#"
+
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+        - firstName
+        - lastName
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        role:
+          type: string
+          enum: [USER, ADMIN]
 
     ForgotPasswordRequest:
       type: object
@@ -59,7 +72,6 @@ components:
         email:
           type: string
           format: email
-          example: user@example.com
 
     ResetPasswordRequest:
       type: object
@@ -69,78 +81,14 @@ components:
       properties:
         token:
           type: string
-          example: "reset-token-from-email"
         password:
           type: string
-          minLength: 8
-          pattern: "^(?=.*[0-9])(?=.*[!@#$%^&*(),.?\":{}|<>])[A-Za-z0-9!@#$%^&*(),.?\":{}|<>]{8,}$"
-          example: "NewPassword123!"
 
-    AuthResponse:
-      type: object
-      properties:
-        token:
-          type: string
-          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-        user:
-          type: object
-          properties:
-            id:
-              type: string
-              example: "123e4567-e89b-12d3-a456-426614174000"
-            email:
-              type: string
-              example: "user@example.com"
-            role:
-              type: string
-              enum: [USER, ADMIN]
-              example: "USER"
-
-    MessageResponse:
+    Error:
       type: object
       properties:
         message:
           type: string
-          example: "Password reset instructions sent to your email."
-
-    ErrorResponse:
-      type: object
-      properties:
-        message:
-          type: string
-          example: "Invalid credentials"
-
-    GoogleAuthResponse:
-      type: object
-      properties:
-        user:
-          type: object
-          properties:
-            id:
-              type: string
-              example: "123456789"
-            displayName:
-              type: string
-              example: "John Doe"
-            emails:
-              type: array
-              items:
-                type: object
-                properties:
-                  value:
-                    type: string
-                    example: "john@example.com"
-                  verified:
-                    type: boolean
-                    example: true
-            photos:
-              type: array
-              items:
-                type: object
-                properties:
-                  value:
-                    type: string
-                    example: "https://example.com/photo.jpg"
 
 paths:
   /auth/register:
@@ -160,13 +108,18 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthResponse'
+                type: object
+                properties:
+                  token:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
         '400':
           description: Bad request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/Error'
 
   /auth/login:
     post:
@@ -185,13 +138,34 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthResponse'
+                type: object
+                properties:
+                  token:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
         '401':
           description: Invalid credentials
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/Error'
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Logout user
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
 
   /auth/forgot-password:
     post:
@@ -206,17 +180,20 @@ paths:
               $ref: '#/components/schemas/ForgotPasswordRequest'
       responses:
         '200':
-          description: Reset instructions sent
+          description: Password reset email sent
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MessageResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
 
   /auth/reset-password:
     post:
       tags:
         - Authentication
-      summary: Reset password with token
+      summary: Reset password
       requestBody:
         required: true
         content:
@@ -229,68 +206,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MessageResponse'
-        '400':
-          description: Invalid or expired token
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /auth/google:
-    get:
-      tags:
-        - Authentication
-      summary: Initiate Google OAuth login
-      description: Redirects to Google's OAuth consent screen
-      responses:
-        '302':
-          description: Redirect to Google OAuth consent screen
-
-  /auth/google/callback:
-    get:
-      tags:
-        - Authentication
-      summary: Google OAuth callback
-      description: Handles the callback from Google OAuth
-      responses:
-        '302':
-          description: Redirect to success or failure URL
-
-  /auth/google/success:
-    get:
-      tags:
-        - Authentication
-      summary: Get Google authentication success data
-      description: Returns the authenticated user's data
-      responses:
-        '200':
-          description: Authentication successful
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GoogleAuthResponse'
-        '401':
-          description: Not authenticated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /auth/logout:
-    post:
-      tags:
-        - Authentication
-      summary: Logout user
-      description: Logs out the currently authenticated user
-      responses:
-        '200':
-          description: Logout successful
-          content:
-            application/json:
-              schema:
                 type: object
                 properties:
                   message:
-                    type: string
-                    example: "Logged out successfully" 
+                    type: string 

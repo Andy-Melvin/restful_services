@@ -32,7 +32,6 @@
     "nodemailer": "^7.0.3",
     "pg": "^8.16.0",
     "prisma": "^6.7.0",
-    "resend": "^4.5.1",
     "swagger-ui-express": "^5.0.1",
     "yamljs": "^0.3.0",
     "zod": "^3.24.4"

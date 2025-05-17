@@ -3,6 +3,8 @@ import {
   login,
   register,
   logout,
+  forgotPassword,
+  resetPassword
 } from '../controllers/auth';
 
 import { validate } from '../middlewares/validate.middleware';
